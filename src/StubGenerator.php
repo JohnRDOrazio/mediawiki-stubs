@@ -255,14 +255,14 @@ class StubGenerator extends NodeVisitorAbstract
 
     public function saveStubs($outputDir)
     {
-        $finalStr = implode("\n", $this->stubs);
-        $finalStr .= "\n";
+        $finalStr = "";
         foreach ($this->processedNamespaces as $namespace => $classes) {
             $finalStr .= "{$namespace} {\n" . implode("\n", $classes) . "\n}\n";
         }
         if (!is_dir($outputDir)) {
             mkdir($outputDir);
         }
+        file_put_contents($outputDir . '/mediawiki-globals.php', "<?php\n\n" . implode("\n", $this->stubs));
         file_put_contents($outputDir . '/mediawiki-stubs.php', "<?php\n\n" . $finalStr);
         // file_put_contents($outputDir . '/mediawiki-stubs-pretty.json', json_encode($this->classMethods, JSON_PRETTY_PRINT));
         // file_put_contents($outputDir . '/mediawiki-stubs.json', json_encode($this->rawMethods, JSON_PRETTY_PRINT));
