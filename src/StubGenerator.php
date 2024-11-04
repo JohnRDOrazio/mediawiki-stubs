@@ -42,6 +42,12 @@ class StubGenerator extends NodeVisitorAbstract
     private array $globalConstants     = [];
     private array $stubs               = [];
     private array $rawMethods          = [];
+    private array $rawClasses          = [];
+    private array $prettyClasses       = [];
+    private array $rawNamespaces       = [];
+    private array $prettyNamespaces    = [];
+    private array $rawConstants        = [];
+    private array $rawProperties       = [];
 
     public function __construct()
     {
@@ -55,9 +61,14 @@ class StubGenerator extends NodeVisitorAbstract
             $this->isNamespaceWrapped = !empty($node->stmts);
             $nodeWithoutStmts = clone $node;
             $nodeWithoutStmts->stmts = [];
+            $this->rawNamespaces[] = $nodeWithoutStmts;
             $pattern = '/^(?:.|\n)*(namespace .*?);\n$/';
             $this->currentNamespace = preg_replace($pattern, '$1', $this->prettyPrinter->prettyPrint([$nodeWithoutStmts]));
             if (false === array_key_exists($this->currentNamespace, $this->processedNamespaces)) {
+                $this->prettyNamespaces[] = [
+                    'prettyPrint' => $this->prettyPrinter->prettyPrint([$nodeWithoutStmts]),
+                    'clean' => $this->currentNamespace
+                ];
                 $this->processedNamespaces[$this->currentNamespace] = [];
             }
         }
@@ -67,7 +78,6 @@ class StubGenerator extends NodeVisitorAbstract
             // Ensure namespacedName is set
             if (isset($node->namespacedName)) {
                 $className = $node->namespacedName->toString();
-
                 // If the class has already been processed, skip it
                 if (in_array($className, $this->processedClasses)) {
                     $this->currentClass = null; // Avoid adding methods/properties/constants to this class again
@@ -77,6 +87,10 @@ class StubGenerator extends NodeVisitorAbstract
                 // Store only the class signature without its methods, properties, or constants
                 $nodeWithoutStmts = clone $node;
                 $nodeWithoutStmts->stmts = []; // Clear all methods, properties, and constants
+                $this->rawClasses[$className] = [
+                    'raw' => $nodeWithoutStmts,
+                    'namespace' => $this->currentNamespace
+                ];
                 $this->currentClass = $className;
 
                 $prettyPrintClass = $this->prettyPrinter->prettyPrint([$nodeWithoutStmts]);
@@ -137,9 +151,13 @@ class StubGenerator extends NodeVisitorAbstract
             // Include only public and protected properties
             if ($propertyModifiers & (Modifiers::PUBLIC | MODIFIERS::PROTECTED)) {
                 if ($this->currentClass !== null) {
-                    $indentation = $this->isNamespaceWrapped ? "\t\t" : "\t";
+                    $this->rawProperties[] = $node;
+                    //$indentation = $this->isNamespaceWrapped ? "\t\t" : "\t";
+                    $indentation = "\t\t";
                     $prettyPrintProperty = $indentation . $this->prettyPrinter->prettyPrint([$node]);
                     $prettyPrintProperty = str_replace("\n", "\n{$indentation}", $prettyPrintProperty);
+                    // Escape any character combinations in the Doc Block that could be confused as a capture group replacement
+                    $prettyPrintProperty = preg_replace('/(\$[1-9])/', '\\\$1', $prettyPrintProperty);
                     $this->classProperties[$this->currentClass][] = $prettyPrintProperty;
                 }
             }
@@ -151,11 +169,14 @@ class StubGenerator extends NodeVisitorAbstract
             // Include only public and protected constants
             if ($constModifiers & (Modifiers::PUBLIC | MODIFIERS::PROTECTED)) {
                 if ($this->currentClass !== null) {
-                    $indentation = $this->isNamespaceWrapped ? "\t\t" : "\t";
+                    $this->rawConstants[] = $node;
+                    //$indentation = $this->isNamespaceWrapped ? "\t\t" : "\t";
+                    $indentation = "\t\t";
                     $prettyPrintConst = $indentation . $this->prettyPrinter->prettyPrint([$node]);
                     $prettyPrintConst = str_replace("\n", "\n{$indentation}", $prettyPrintConst);
                     // Escape any character combinations in the Doc Block that could be confused as a capture group replacement
                     $prettyPrintConst = preg_replace('/(\$[1-9])/', '\\\$1', $prettyPrintConst);
+                    $prettyPrintConst = preg_replace('/(\\\1)/', '\\\$1', $prettyPrintConst);
                     $this->classConstants[$this->currentClass][] = $prettyPrintConst;
                 }
             }
@@ -264,9 +285,14 @@ class StubGenerator extends NodeVisitorAbstract
         }
         file_put_contents($outputDir . '/mediawiki-globals.php', "<?php\n\n" . implode("\n", $this->stubs));
         file_put_contents($outputDir . '/mediawiki-stubs.php', "<?php\n\n" . $finalStr);
-        // file_put_contents($outputDir . '/mediawiki-stubs-pretty.json', json_encode($this->classMethods, JSON_PRETTY_PRINT));
-        // file_put_contents($outputDir . '/mediawiki-stubs.json', json_encode($this->rawMethods, JSON_PRETTY_PRINT));
-        // file_put_contents($outputDir . '/mediawiki-stubs-class-constants.json', json_encode($this->classConstants, JSON_PRETTY_PRINT));
+        // file_put_contents($outputDir . '/mediawiki-methods-pretty.json', json_encode($this->classMethods, JSON_PRETTY_PRINT));
+        // file_put_contents($outputDir . '/mediawiki-classes-raw.json', json_encode($this->rawClasses, JSON_PRETTY_PRINT));
+        // file_put_contents($outputDir . '/mediawiki-namespaces-raw.json', json_encode($this->rawNamespaces, JSON_PRETTY_PRINT));
+        // file_put_contents($outputDir . '/mediawiki-namespaces-pretty.json', json_encode($this->prettyNamespaces, JSON_PRETTY_PRINT));
+        // file_put_contents($outputDir . '/mediawiki-class-constants-raw.json', json_encode($this->rawConstants, JSON_PRETTY_PRINT));
+        // file_put_contents($outputDir . '/mediawiki-class-constants-pretty.json', json_encode($this->classConstants, JSON_PRETTY_PRINT));
+        file_put_contents($outputDir . '/mediawiki-class-properties-raw.json', json_encode($this->rawProperties, JSON_PRETTY_PRINT));
+        file_put_contents($outputDir . '/mediawiki-class-properties-pretty.json', json_encode($this->classProperties, JSON_PRETTY_PRINT));
     }
 
     private static function debugWrite(string $string)
