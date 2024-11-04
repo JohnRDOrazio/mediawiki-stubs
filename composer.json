@@ -1,5 +1,21 @@
 {
+    "name": "johnrdorazio/mediawikistubs",
+    "description": "HTML view of a Liturgical Calendar in PHP using the Liturgical Calendar API",
+    "type": "library",
     "require": {
         "nikic/php-parser": "^5.1"
-    }
+    },
+    "license": "Apache-2.0",
+    "autoload": {
+        "psr-4": {
+            "Johnrdorazio\\MediaWikiStubs\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "John R. D'Orazio",
+            "email": "priest@johnromanodorazio.com"
+        }
+    ],
+    "minimum-stability": "stable"
 }
