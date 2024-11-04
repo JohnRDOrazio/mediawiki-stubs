@@ -1,6 +1,6 @@
 {
     "name": "johnrdorazio/mediawikistubs",
-    "description": "HTML view of a Liturgical Calendar in PHP using the Liturgical Calendar API",
+    "description": "Generate intelephense stubs for mediawiki/core",
     "type": "library",
     "require": {
         "nikic/php-parser": "^5.1"
